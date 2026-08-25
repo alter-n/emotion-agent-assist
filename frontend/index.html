@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Support | Agent Assist PoC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Material Symbols -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Customer View -->
+        <div class="view-panel customer-panel">
+            <div class="panel-header">
+                <h2><span class="material-symbols-outlined">smartphone</span> Customer View</h2>
+                <p>Simulate a customer sending a message</p>
+            </div>
+            
+            <div class="chat-container customer-chat" id="customer-chat-window">
+                <div class="chat-message agent">
+                    <div class="avatar">A</div>
+                    <div class="message-bubble">Hello! How can I help you today?</div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <textarea id="customer-input" placeholder="Type a message... (e.g. 'I am so frustrated with this service!')" rows="3"></textarea>
+                <button id="send-btn" class="primary-btn">
+                    <span class="material-symbols-outlined">send</span> Send
+                </button>
+            </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="divider"></div>
+
+        <!-- Agent View -->
+        <div class="view-panel agent-panel">
+            <div class="panel-header">
+                <h2><span class="material-symbols-outlined">support_agent</span> Agent View</h2>
+                <p>Real-time AI assistance</p>
+            </div>
+            
+            <div class="chat-container agent-chat" id="agent-chat-window">
+                <div class="chat-message agent">
+                    <div class="avatar">A</div>
+                    <div class="message-bubble">Hello! How can I help you today?</div>
+                </div>
+            </div>
+
+            <!-- Agent Assist Module -->
+            <div class="agent-assist-module">
+                <div class="assist-header">
+                    <h3><span class="material-symbols-outlined">psychiatry</span> AI Agent Assist</h3>
+                    <div id="status-indicator" class="status-indicator idle"></div>
+                </div>
+                <div class="assist-content" id="assist-content">
+                    <div class="empty-state">
+                        <span class="material-symbols-outlined empty-icon">forum</span>
+                        <p>Waiting for customer message...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <textarea disabled placeholder="Agent reply... (Disabled in this PoC)" rows="2"></textarea>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
