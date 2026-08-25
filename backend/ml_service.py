@@ -58,14 +58,14 @@ def analyze_emotion(text: str):
             # --- MIXED SENTIMENT OVERRIDE ---
             # In customer support, a complaint wrapped in a compliment is still a complaint!
             # Example: "I am happy with the service, BUT the UI is horrible"
-            # If the primary emotion is 'joy', but a negative emotion is also strongly detected (score > 0.15),
+            # If the primary emotion is 'joy', but a negative emotion is also strongly detected (score > 0.05),
             # we override the result to highlight the negative emotion so the agent can address the complaint.
             if emotion == 'joy':
                 negative_emotions = ['anger', 'disgust', 'sadness', 'fear']
                 for res in sorted_results[1:4]: # Check the runner-up emotions
                     l = res.get('label') if isinstance(res, dict) else getattr(res, 'label')
                     s = res.get('score') if isinstance(res, dict) else getattr(res, 'score')
-                    if l in negative_emotions and s >= 0.15:
+                    if l in negative_emotions and s >= 0.05:
                         emotion = l
                         score = s
                         break
