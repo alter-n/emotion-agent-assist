@@ -1,11 +1,10 @@
 import requests
-import json
+import os
 import time
 
 API_URL = "https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base"
-# In a real production app, you would pass an API token here via environment variables:
-# headers = {"Authorization": f"Bearer {API_TOKEN}"}
-headers = {}
+API_TOKEN = os.getenv("HF_API_TOKEN")
+headers = {"Authorization": f"Bearer {API_TOKEN}"} if API_TOKEN else {}
 
 SUGGESTIONS = {
     "anger": "The customer is angry. Validate their frustration, apologize sincerely, and offer an immediate resolution.",
@@ -26,11 +25,13 @@ def analyze_emotion(text: str):
     try:
         response = requests.post(API_URL, headers=headers, json=payload)
         
-        # Hugging Face API might return a 503 if the model is currently loading on their end
-        if response.status_code == 503:
-            # Simple retry mechanism if model is loading
-            time.sleep(2)
+        # Hugging Face API returns 503 if the model is currently loading on their end
+        retries = 0
+        while response.status_code == 503 and retries < 5:
+            print("Model is loading on Hugging Face, waiting 5 seconds...")
+            time.sleep(5)
             response = requests.post(API_URL, headers=headers, json=payload)
+            retries += 1
             
         response.raise_for_status()
         data = response.json()
@@ -54,17 +55,22 @@ def analyze_emotion(text: str):
         
     except requests.exceptions.RequestException as e:
         print(f"API Error: {e}")
-        # Check if we got a specific error from Hugging Face (like rate limiting)
         try:
             error_details = response.json()
             print(f"Details: {error_details}")
+            if "error" in error_details and "Authorization header" in error_details["error"]:
+                 return {
+                    "emotion": "unknown",
+                    "score": 0.0,
+                    "suggestion": "Invalid Hugging Face API token provided."
+                }
         except:
             pass
             
         return {
             "emotion": "unknown",
             "score": 0.0,
-            "suggestion": "API is currently overloaded or rate-limited. Please try again later."
+            "suggestion": "API is currently overloaded or rate-limited. Please add a Hugging Face token or try again later."
         }
     except Exception as e:
         print(f"Error parsing response: {e}")
