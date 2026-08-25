@@ -107,6 +107,17 @@ body {
     flex-direction: row-reverse;
 }
 
+/* Agent View Flipped Alignment */
+.agent-chat .chat-message.agent {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.agent-chat .chat-message.customer {
+    align-self: flex-start;
+    flex-direction: row;
+}
+
 .avatar {
     width: 36px;
     height: 36px;
@@ -144,6 +155,17 @@ body {
 .customer .message-bubble {
     background: var(--primary-color);
     border-top-right-radius: 4px;
+}
+
+/* Agent View Flipped Bubble Tails */
+.agent-chat .agent .message-bubble {
+    border-top-left-radius: 16px;
+    border-top-right-radius: 4px;
+}
+
+.agent-chat .customer .message-bubble {
+    border-top-right-radius: 16px;
+    border-top-left-radius: 4px;
 }
 
 .input-area {
