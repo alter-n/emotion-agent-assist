@@ -136,7 +136,11 @@ async function handleAgentMessage() {
         const data = await response.json();
         const emotion = data.emotion;
         
-        if (['anger', 'disgust', 'sadness'].includes(emotion)) {
+        // Quick keyword trap for passive-aggressiveness that the emotion model might miss (classifying as neutral)
+        const badAgentKeywords = ['joke', 'passive', 'not changing', 'deal with it', 'your problem', 'obviously', 'whatever'];
+        const isPassiveAggressive = badAgentKeywords.some(word => text.toLowerCase().includes(word));
+        
+        if (['anger', 'disgust', 'sadness'].includes(emotion) || isPassiveAggressive) {
             // Negative agent tone
             chatTemperature -= 20; // Heavy penalty
             chatTemperature = Math.max(0, chatTemperature);
@@ -146,6 +150,8 @@ async function handleAgentMessage() {
             statusIndicator.className = 'status-indicator active';
             statusIndicator.style.backgroundColor = 'var(--surprise)';
             
+            const detectedReason = isPassiveAggressive ? "PASSIVE-AGGRESSIVE" : emotion.toUpperCase();
+            
             assistContent.innerHTML = `
                 <div class="emotion-card" style="border-left: 4px solid var(--surprise); background: rgba(245, 158, 11, 0.1);">
                     <div class="emotion-badge" style="background: var(--surprise); color: #fff;">
@@ -153,8 +159,8 @@ async function handleAgentMessage() {
                         AGENT TONE WARNING
                     </div>
                     <p class="suggestion-text">
-                        <strong>Detected: ${emotion.toUpperCase()}</strong><br><br>
-                        Your tone appears negative and is escalating the situation. Please maintain professionalism.
+                        <strong>Detected: ${detectedReason}</strong><br><br>
+                        Your tone appears negative or dismissive and is escalating the situation. Please maintain professionalism.
                     </p>
                 </div>
             `;
@@ -163,10 +169,13 @@ async function handleAgentMessage() {
                 triggerEscalation("Agent's negative tone dropped chat health below critical threshold.");
             }
             
-        } else {
-            // Positive/Neutral agent tone
+        } else if (emotion === 'joy') {
+            // Only genuinely positive agent tone heals the chat
             chatTemperature = Math.min(100, chatTemperature + 15);
             updateTemperatureUI();
+        } else {
+            // Neutral/Surprise/Fear -> do nothing to the health bar
+            // (A blunt/neutral response doesn't heal a frustrated customer)
         }
         
     } catch (error) {
