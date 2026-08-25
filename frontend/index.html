@@ -64,10 +64,24 @@
                         <p>Waiting for customer message...</p>
                     </div>
                 </div>
+                
+                <!-- Chat Temperature UI -->
+                <div class="temperature-container">
+                    <div class="temp-header">
+                        <span><span class="material-symbols-outlined" style="font-size: 16px; vertical-align: bottom;">device_thermostat</span> Chat Health</span>
+                        <span id="temp-value">100%</span>
+                    </div>
+                    <div class="temp-bar-bg">
+                        <div class="temp-bar-fill" id="temp-bar" style="width: 100%; background: var(--joy);"></div>
+                    </div>
+                </div>
             </div>
             
             <div class="input-area">
-                <textarea disabled placeholder="Agent reply... (Disabled in this PoC)" rows="2"></textarea>
+                <textarea id="agent-input" placeholder="Type a reply to de-escalate... (e.g. 'I understand, let me fix this.')" rows="3"></textarea>
+                <button id="agent-send-btn" class="secondary-btn">
+                    <span class="material-symbols-outlined">send</span> Reply
+                </button>
             </div>
         </div>
     </div>

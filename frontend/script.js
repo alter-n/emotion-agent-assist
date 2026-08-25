@@ -8,6 +8,12 @@ const agentChatWindow = document.getElementById('agent-chat-window');
 const assistContent = document.getElementById('assist-content');
 const statusIndicator = document.getElementById('status-indicator');
 
+// New DOM Elements for expansion
+const agentInput = document.getElementById('agent-input');
+const agentSendBtn = document.getElementById('agent-send-btn');
+const tempValue = document.getElementById('temp-value');
+const tempBar = document.getElementById('temp-bar');
+
 // Emotion to color map (matching CSS variables)
 const emotionColors = {
     anger: 'var(--anger)',
@@ -32,12 +38,27 @@ const emotionIcons = {
     unknown: 'help'
 };
 
+// --- STATE ---
+let chatTemperature = 100;
+let isEscalated = false;
+
+// Triggers
+const escalationKeywords = ['sue', 'lawyer', 'legal', 'media', 'news', 'twitter', 'manager', 'supervisor', 'police', 'court'];
+
 // Event Listeners
 sendBtn.addEventListener('click', handleSendMessage);
 customerInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSendMessage();
+    }
+});
+
+agentSendBtn.addEventListener('click', handleAgentMessage);
+agentInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleAgentMessage();
     }
 });
 
@@ -51,6 +72,16 @@ async function handleSendMessage() {
     
     // Clear input
     customerInput.value = '';
+
+    // Check for hard escalation triggers first
+    const lowerText = text.toLowerCase();
+    const triggeredWord = escalationKeywords.find(word => lowerText.includes(word));
+    if (triggeredWord) {
+        triggerEscalation(`Customer used escalation keyword: "${triggeredWord.toUpperCase()}"`);
+        return; // Skip normal AI if escalated
+    }
+
+    if (isEscalated) return;
 
     // 2. Set AI Assist to loading state
     setAssistLoadingState();
@@ -71,12 +102,92 @@ async function handleSendMessage() {
 
         const data = await response.json();
         
-        // 4. Update Agent Assist Module
-        updateAssistModule(data);
+        // 4. Update Temperature and Assist Module
+        updateTemperature(data.emotion);
+        if (!isEscalated) {
+            updateAssistModule(data);
+        }
     } catch (error) {
         console.error('Failed to analyze emotion:', error);
         showAssistError();
     }
+}
+
+function handleAgentMessage() {
+    const text = agentInput.value.trim();
+    if (!text) return;
+
+    // Add agent message
+    appendMessage(text, 'agent', customerChatWindow);
+    appendMessage(text, 'agent', agentChatWindow);
+    agentInput.value = '';
+
+    // De-escalate temperature slightly if not fully escalated
+    if (!isEscalated) {
+        chatTemperature = Math.min(100, chatTemperature + 15);
+        updateTemperatureUI();
+    }
+}
+
+function updateTemperature(emotion) {
+    if (isEscalated) return;
+
+    let drop = 0;
+    switch (emotion) {
+        case 'anger': drop = 20; break;
+        case 'disgust': drop = 15; break;
+        case 'sadness': drop = 10; break;
+        case 'fear': drop = 10; break;
+        case 'joy': chatTemperature = Math.min(100, chatTemperature + 15); break;
+        default: break;
+    }
+
+    chatTemperature -= drop;
+    chatTemperature = Math.max(0, chatTemperature);
+    updateTemperatureUI();
+
+    if (chatTemperature <= 30) {
+        triggerEscalation("Chat health dropped below critical 30% threshold due to repeated negative emotions.");
+    }
+}
+
+function updateTemperatureUI() {
+    tempValue.textContent = `${chatTemperature}%`;
+    tempBar.style.width = `${chatTemperature}%`;
+    
+    if (chatTemperature > 70) {
+        tempBar.style.backgroundColor = 'var(--joy)';
+    } else if (chatTemperature > 30) {
+        tempBar.style.backgroundColor = 'var(--surprise)'; // Yellowish
+    } else {
+        tempBar.style.backgroundColor = 'var(--anger)';
+    }
+}
+
+function triggerEscalation(reason) {
+    isEscalated = true;
+    chatTemperature = 0;
+    updateTemperatureUI();
+    
+    // Add pulsing red alert effect to the whole box
+    const assistModule = document.querySelector('.agent-assist-module');
+    assistModule.classList.add('escalation-alert');
+    
+    statusIndicator.className = 'status-indicator active';
+    statusIndicator.style.backgroundColor = 'var(--anger)';
+    
+    assistContent.innerHTML = `
+        <div class="emotion-card" style="border-left: 4px solid var(--anger); background: rgba(239, 68, 68, 0.1);">
+            <div class="emotion-badge" style="background: var(--anger); color: white;">
+                <span class="material-symbols-outlined" style="font-size: 1.1rem;">warning</span>
+                MANAGER ALERT
+            </div>
+            <p class="suggestion-text">
+                <strong>CRITICAL ESCALATION:</strong> ${escapeHTML(reason)} <br><br>
+                A supervisor has been silently notified and is now monitoring this session. Please remain calm and professional.
+            </p>
+        </div>
+    `;
 }
 
 function appendMessage(text, sender, container) {
