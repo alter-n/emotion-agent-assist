@@ -47,13 +47,28 @@ def analyze_emotion(text: str):
         if len(results) > 0:
             # Handle both dict-like and object-like returns from the SDK
             if isinstance(results[0], dict):
-                top_result = sorted(results, key=lambda x: x.get('score', 0), reverse=True)[0]
-                emotion = top_result.get('label', 'unknown')
-                score = top_result.get('score', 0.0)
+                sorted_results = sorted(results, key=lambda x: x.get('score', 0), reverse=True)
+                emotion = sorted_results[0].get('label', 'unknown')
+                score = sorted_results[0].get('score', 0.0)
             else:
-                top_result = sorted(results, key=lambda x: getattr(x, 'score', 0), reverse=True)[0]
-                emotion = getattr(top_result, 'label', 'unknown')
-                score = getattr(top_result, 'score', 0.0)
+                sorted_results = sorted(results, key=lambda x: getattr(x, 'score', 0), reverse=True)
+                emotion = getattr(sorted_results[0], 'label', 'unknown')
+                score = getattr(sorted_results[0], 'score', 0.0)
+                
+            # --- MIXED SENTIMENT OVERRIDE ---
+            # In customer support, a complaint wrapped in a compliment is still a complaint!
+            # Example: "I am happy with the service, BUT the UI is horrible"
+            # If the primary emotion is 'joy', but a negative emotion is also strongly detected (score > 0.15),
+            # we override the result to highlight the negative emotion so the agent can address the complaint.
+            if emotion == 'joy':
+                negative_emotions = ['anger', 'disgust', 'sadness', 'fear']
+                for res in sorted_results[1:4]: # Check the runner-up emotions
+                    l = res.get('label') if isinstance(res, dict) else getattr(res, 'label')
+                    s = res.get('score') if isinstance(res, dict) else getattr(res, 'score')
+                    if l in negative_emotions and s >= 0.15:
+                        emotion = l
+                        score = s
+                        break
         else:
             raise ValueError("Empty response from Hugging Face API")
             
