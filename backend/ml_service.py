@@ -1,14 +1,12 @@
-from transformers import pipeline
+import requests
+import json
+import time
 
-# Load the emotion classification model
-# We use a pipeline for simplicity and performance.
-# DistilRoBERTa is fast and lightweight, ideal for a PoC.
-print("Loading the emotion classification model... This may take a moment on the first run.")
-classifier = pipeline("text-classification", model="j-hartmann/emotion-english-distilroberta-base", return_all_scores=False)
-print("Model loaded successfully!")
+API_URL = "https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base"
+# In a real production app, you would pass an API token here via environment variables:
+# headers = {"Authorization": f"Bearer {API_TOKEN}"}
+headers = {}
 
-# Define suggestions based on the emotion detected
-# The model supports 7 emotions: anger, disgust, fear, joy, neutral, sadness, surprise
 SUGGESTIONS = {
     "anger": "The customer is angry. Validate their frustration, apologize sincerely, and offer an immediate resolution.",
     "disgust": "The customer is extremely dissatisfied. Acknowledge the issue, apologize, and promise to investigate.",
@@ -21,16 +19,31 @@ SUGGESTIONS = {
 
 def analyze_emotion(text: str):
     """
-    Analyzes the emotion of the input text and returns the dominant emotion,
-    its confidence score, and a suggested agent response.
+    Analyzes the emotion using the Hugging Face Inference API.
     """
+    payload = {"inputs": text}
+    
     try:
-        # Run inference
-        result = classifier(text)[0]
-        emotion = result['label']
-        score = result['score']
+        response = requests.post(API_URL, headers=headers, json=payload)
         
-        # Get suggested response
+        # Hugging Face API might return a 503 if the model is currently loading on their end
+        if response.status_code == 503:
+            # Simple retry mechanism if model is loading
+            time.sleep(2)
+            response = requests.post(API_URL, headers=headers, json=payload)
+            
+        response.raise_for_status()
+        data = response.json()
+        
+        # The API returns a list of lists of dictionaries: [[{'label': 'anger', 'score': 0.9}]]
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list) and len(data[0]) > 0:
+            # Sort the emotions by score to get the top one
+            top_emotion_data = sorted(data[0], key=lambda x: x['score'], reverse=True)[0]
+            emotion = top_emotion_data['label']
+            score = top_emotion_data['score']
+        else:
+            raise ValueError("Unexpected response format from Hugging Face API")
+            
         suggestion = SUGGESTIONS.get(emotion, "No suggestion available.")
         
         return {
@@ -38,10 +51,25 @@ def analyze_emotion(text: str):
             "score": score,
             "suggestion": suggestion
         }
-    except Exception as e:
-        print(f"Error during analysis: {e}")
+        
+    except requests.exceptions.RequestException as e:
+        print(f"API Error: {e}")
+        # Check if we got a specific error from Hugging Face (like rate limiting)
+        try:
+            error_details = response.json()
+            print(f"Details: {error_details}")
+        except:
+            pass
+            
         return {
             "emotion": "unknown",
             "score": 0.0,
-            "suggestion": "An error occurred during analysis. Please handle manually."
+            "suggestion": "API is currently overloaded or rate-limited. Please try again later."
+        }
+    except Exception as e:
+        print(f"Error parsing response: {e}")
+        return {
+            "emotion": "unknown",
+            "score": 0.0,
+            "suggestion": "An error occurred during analysis."
         }
