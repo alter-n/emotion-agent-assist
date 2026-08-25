@@ -24,6 +24,8 @@ def analyze_emotion(text: str):
         # We loop to handle 503 Model Loading errors which the client might throw
         retries = 0
         results = None
+        start_time = time.time()
+        
         while retries < 5:
             try:
                 results = client.text_classification(text, model="j-hartmann/emotion-english-distilroberta-base")
@@ -50,12 +52,15 @@ def analyze_emotion(text: str):
                 sorted_results = sorted(results, key=lambda x: x.get('score', 0), reverse=True)
                 emotion = sorted_results[0].get('label', 'unknown')
                 score = sorted_results[0].get('score', 0.0)
+                raw_scores = {res.get('label'): res.get('score') for res in sorted_results}
             else:
                 sorted_results = sorted(results, key=lambda x: getattr(x, 'score', 0), reverse=True)
                 emotion = getattr(sorted_results[0], 'label', 'unknown')
                 score = getattr(sorted_results[0], 'score', 0.0)
+                raw_scores = {getattr(res, 'label'): getattr(res, 'score') for res in sorted_results}
                 
             # --- MIXED SENTIMENT OVERRIDE ---
+            override_triggered = False
             # In customer support, a complaint wrapped in a compliment is still a complaint!
             # Example: "I am happy with the service, BUT the UI is horrible"
             # If the primary emotion is 'joy', but a negative emotion is also strongly detected (score > 0.05),
@@ -68,16 +73,25 @@ def analyze_emotion(text: str):
                     if l in negative_emotions and s >= 0.05:
                         emotion = l
                         score = s
+                        override_triggered = True
                         break
         else:
             raise ValueError("Empty response from Hugging Face API")
             
         suggestion = SUGGESTIONS.get(emotion, "No suggestion available.")
         
+        end_time = time.time()
+        latency_ms = int((end_time - start_time) * 1000)
+        
         return {
             "emotion": emotion,
             "score": score,
-            "suggestion": suggestion
+            "suggestion": suggestion,
+            "debug": {
+                "latency_ms": latency_ms,
+                "raw_scores": raw_scores,
+                "override_triggered": override_triggered
+            }
         }
         
     except Exception as e:
@@ -94,5 +108,6 @@ def analyze_emotion(text: str):
         return {
             "emotion": "unknown",
             "score": 0.0,
-            "suggestion": suggestion
+            "suggestion": suggestion,
+            "debug": None
         }

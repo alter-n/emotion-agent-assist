@@ -102,6 +102,10 @@ async function handleSendMessage() {
 
         const data = await response.json();
         
+        if (data.debug) {
+            updateDebugPanel(data.debug, 'customer');
+        }
+        
         // 4. Update Temperature and Assist Module
         updateTemperature(data.emotion);
         if (!isEscalated) {
@@ -134,6 +138,11 @@ async function handleAgentMessage() {
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
         const data = await response.json();
+        
+        if (data.debug) {
+            updateDebugPanel(data.debug, 'agent');
+        }
+        
         const emotion = data.emotion;
         
         // Quick keyword trap for passive-aggressiveness that the emotion model might miss (classifying as neutral)
@@ -306,4 +315,51 @@ function escapeHTML(str) {
     const p = document.createElement('p');
     p.appendChild(document.createTextNode(str));
     return p.innerHTML;
+}
+
+// --- DEBUG PANEL LOGIC ---
+const debugPanel = document.getElementById('debug-panel');
+const debugOutput = document.getElementById('debug-output');
+const closeDebugBtn = document.getElementById('close-debug');
+
+document.addEventListener('keydown', (e) => {
+    // Ctrl + Shift + D
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        debugPanel.classList.toggle('hidden');
+    }
+});
+
+if (closeDebugBtn) {
+    closeDebugBtn.addEventListener('click', () => {
+        debugPanel.classList.add('hidden');
+    });
+}
+
+function updateDebugPanel(debugData, origin) {
+    if (!debugData || !debugOutput) return;
+    
+    const ts = new Date().toISOString().split('T')[1].split('.')[0]; // HH:MM:SS
+    let output = `[${ts}] Request origin: ${origin.toUpperCase()}\n`;
+    output += `Latency: ${debugData.latency_ms} ms\n`;
+    output += `Mixed Sentiment Override: ${debugData.override_triggered}\n\n`;
+    output += `Raw Model Probabilities:\n`;
+    
+    // Sort scores high to low
+    if (debugData.raw_scores) {
+        const sortedScores = Object.entries(debugData.raw_scores).sort((a, b) => b[1] - a[1]);
+        sortedScores.forEach(([label, score]) => {
+            const percentage = (score * 100).toFixed(2);
+            output += `  - ${label.padEnd(10, ' ')}: ${percentage}%\n`;
+        });
+    }
+    
+    output += `\n-----------------------------------\n\n`;
+    
+    // Prepend to output if it's not the initial placeholder
+    if (debugOutput.textContent.includes('Awaiting API Payload...')) {
+        debugOutput.textContent = output;
+    } else {
+        debugOutput.textContent = output + debugOutput.textContent;
+    }
 }

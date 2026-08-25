@@ -18,10 +18,13 @@ app.add_middleware(
 class MessageRequest(BaseModel):
     text: str
 
+from typing import Optional
+
 class EmotionResponse(BaseModel):
     emotion: str
     score: float
     suggestion: str
+    debug: Optional[dict] = None
 
 @app.get("/")
 def read_root():

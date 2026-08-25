@@ -12,6 +12,15 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Hidden Debug Panel (Toggle with Ctrl+Shift+D) -->
+    <div id="debug-panel" class="debug-panel hidden">
+        <div class="debug-header">
+            <span>> SYSTEM_DEBUG_TERMINAL</span>
+            <button id="close-debug" class="close-btn">&times;</button>
+        </div>
+        <pre id="debug-output">Awaiting API Payload...</pre>
+    </div>
+
     <div class="app-container">
         <!-- Customer View -->
         <div class="view-panel customer-panel">

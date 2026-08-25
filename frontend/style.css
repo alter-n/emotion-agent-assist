@@ -419,3 +419,56 @@ textarea:disabled {
 .secondary-btn:hover {
     background: #475569;
 }
+
+/* Debug Terminal */
+.debug-panel {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    max-width: 90%;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid #3b82f6;
+    border-radius: 8px;
+    z-index: 1000;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    color: #34d399; /* Terminal green */
+    font-family: 'Courier New', Courier, monospace;
+    backdrop-filter: blur(4px);
+    overflow: hidden;
+}
+
+.debug-panel.hidden {
+    display: none;
+}
+
+.debug-header {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #3b82f6;
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #60a5fa;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+#debug-output {
+    padding: 15px;
+    margin: 0;
+    white-space: pre-wrap;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    max-height: 400px;
+    overflow-y: auto;
+}
