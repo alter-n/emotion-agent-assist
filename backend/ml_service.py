@@ -1,10 +1,10 @@
-import requests
 import os
 import time
+from huggingface_hub import InferenceClient
 
-API_URL = "https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base"
+# Initialize the official Hugging Face SDK Client
 API_TOKEN = os.getenv("HF_API_TOKEN")
-headers = {"Authorization": f"Bearer {API_TOKEN}"} if API_TOKEN else {}
+client = InferenceClient(token=API_TOKEN)
 
 SUGGESTIONS = {
     "anger": "The customer is angry. Validate their frustration, apologize sincerely, and offer an immediate resolution.",
@@ -18,37 +18,44 @@ SUGGESTIONS = {
 
 def analyze_emotion(text: str):
     """
-    Analyzes the emotion using the Hugging Face Inference API.
+    Analyzes the emotion using the official Hugging Face Inference SDK.
     """
-    payload = {"inputs": text}
-    
     try:
-        response = requests.post(API_URL, headers=headers, json=payload)
-        
-        # Hugging Face API returns 503 if the model is currently loading on their end
+        # We loop to handle 503 Model Loading errors which the client might throw
         retries = 0
-        while response.status_code == 503 and retries < 10:
+        results = None
+        while retries < 5:
             try:
-                error_data = response.json()
-                # Use HF's estimated time, but cap it at 10 seconds per loop to check back often
-                wait_time = min(error_data.get("estimated_time", 10.0), 10.0)
-            except:
-                wait_time = 5.0
-                
-            print(f"Model is loading on Hugging Face, waiting {wait_time} seconds...")
-            time.sleep(wait_time)
-            response = requests.post(API_URL, headers=headers, json=payload)
-            retries += 1
-            
-        response.raise_for_status()
-        data = response.json()
+                results = client.text_classification(text, model="j-hartmann/emotion-english-distilroberta-base")
+                break  # Success!
+            except Exception as e:
+                error_str = str(e).lower()
+                if "503" in error_str or "loading" in error_str:
+                    print(f"Model loading, waiting 10 seconds... ({retries+1}/5)")
+                    time.sleep(10)
+                    retries += 1
+                else:
+                    raise e  # Re-raise if it's not a loading error
         
-        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list) and len(data[0]) > 0:
-            top_emotion_data = sorted(data[0], key=lambda x: x['score'], reverse=True)[0]
-            emotion = top_emotion_data['label']
-            score = top_emotion_data['score']
+        if results is None:
+            return {
+                "emotion": "unknown",
+                "score": 0.0,
+                "suggestion": "Model took too long to load on Hugging Face. Please try again."
+            }
+            
+        if len(results) > 0:
+            # Handle both dict-like and object-like returns from the SDK
+            if isinstance(results[0], dict):
+                top_result = sorted(results, key=lambda x: x.get('score', 0), reverse=True)[0]
+                emotion = top_result.get('label', 'unknown')
+                score = top_result.get('score', 0.0)
+            else:
+                top_result = sorted(results, key=lambda x: getattr(x, 'score', 0), reverse=True)[0]
+                emotion = getattr(top_result, 'label', 'unknown')
+                score = getattr(top_result, 'score', 0.0)
         else:
-            raise ValueError("Unexpected response format from Hugging Face API")
+            raise ValueError("Empty response from Hugging Face API")
             
         suggestion = SUGGESTIONS.get(emotion, "No suggestion available.")
         
@@ -58,34 +65,19 @@ def analyze_emotion(text: str):
             "suggestion": suggestion
         }
         
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         print(f"API Error: {e}")
-        try:
-            error_details = response.json()
-            if "error" in error_details:
-                error_msg = error_details["error"]
-                if "Authorization header" in error_msg:
-                    suggestion = "Invalid Hugging Face API token provided."
-                else:
-                    # Show exactly what HF is complaining about (e.g. Model is still loading)
-                    suggestion = f"Hugging Face API: {error_msg}"
-                return {
-                    "emotion": "unknown",
-                    "score": 0.0,
-                    "suggestion": suggestion
-                }
-        except:
-            pass
+        error_str = str(e)
+        if "Unauthorized" in error_str or "401" in error_str:
+            suggestion = "Invalid Hugging Face API token provided."
+        elif "resolve" in error_str or "NameResolutionError" in error_str:
+             suggestion = "Render Server DNS Error: Could not resolve Hugging Face URL. Try again."
+        else:
+            # Cap the length of the error message to avoid UI overflow
+            suggestion = f"Hugging Face SDK Error: {error_str[:150]}"
             
         return {
             "emotion": "unknown",
             "score": 0.0,
-            "suggestion": "API is currently overloaded or rate-limited. Please try again later."
-        }
-    except Exception as e:
-        print(f"Error parsing response: {e}")
-        return {
-            "emotion": "unknown",
-            "score": 0.0,
-            "suggestion": "An error occurred during analysis."
+            "suggestion": suggestion
         }
