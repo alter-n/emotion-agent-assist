@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8000/api/analyze';
+const API_URL = 'https://emotion-agent-assist.onrender.com/api/analyze';
 
 // DOM Elements
 const customerInput = document.getElementById('customer-input');
