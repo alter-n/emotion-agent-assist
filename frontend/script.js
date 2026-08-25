@@ -113,7 +113,7 @@ async function handleSendMessage() {
     }
 }
 
-function handleAgentMessage() {
+async function handleAgentMessage() {
     const text = agentInput.value.trim();
     if (!text) return;
 
@@ -122,10 +122,55 @@ function handleAgentMessage() {
     appendMessage(text, 'agent', agentChatWindow);
     agentInput.value = '';
 
-    // De-escalate temperature slightly if not fully escalated
-    if (!isEscalated) {
-        chatTemperature = Math.min(100, chatTemperature + 15);
-        updateTemperatureUI();
+    if (isEscalated) return;
+    
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+        const data = await response.json();
+        const emotion = data.emotion;
+        
+        if (['anger', 'disgust', 'sadness'].includes(emotion)) {
+            // Negative agent tone
+            chatTemperature -= 20; // Heavy penalty
+            chatTemperature = Math.max(0, chatTemperature);
+            updateTemperatureUI();
+            
+            // Show Agent Warning
+            statusIndicator.className = 'status-indicator active';
+            statusIndicator.style.backgroundColor = 'var(--surprise)';
+            
+            assistContent.innerHTML = `
+                <div class="emotion-card" style="border-left: 4px solid var(--surprise); background: rgba(245, 158, 11, 0.1);">
+                    <div class="emotion-badge" style="background: var(--surprise); color: #fff;">
+                        <span class="material-symbols-outlined" style="font-size: 1.1rem;">warning</span>
+                        AGENT TONE WARNING
+                    </div>
+                    <p class="suggestion-text">
+                        <strong>Detected: ${emotion.toUpperCase()}</strong><br><br>
+                        Your tone appears negative and is escalating the situation. Please maintain professionalism.
+                    </p>
+                </div>
+            `;
+            
+            if (chatTemperature <= 30) {
+                triggerEscalation("Agent's negative tone dropped chat health below critical threshold.");
+            }
+            
+        } else {
+            // Positive/Neutral agent tone
+            chatTemperature = Math.min(100, chatTemperature + 15);
+            updateTemperatureUI();
+        }
+        
+    } catch (error) {
+        console.error('Failed to analyze agent emotion:', error);
     }
 }
 
